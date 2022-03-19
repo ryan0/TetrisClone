@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="styles.css">
+    <script src="main.js"></script>
+    <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height, target-densitydpi=device-dpi" />
+</head>
+
+<body onload="initialize()">
+    <canvas id="canvas" width="500" height="1000"></canvas>
+    <button onclick="start()" id="play-button" class="play-button">Play</button>
+
+
+    <div id="mobile-interface" class="mobile-interface hide">
+        <div class="rotate-buttons">
+            <div class="mobile-game-button" ontouchstart="touchStartRotateLeft()"></div>
+            <div class="mobile-game-button" ontouchstart="touchStartRotateRight()"></div>
+        </div>
+        <div class="shift-buttons">
+            <div class="mobile-game-button" ontouchstart="touchStartShiftLeft()"></div>
+            <div class="mobile-game-button" ontouchstart="touchStartShiftRight()"></div>
+        </div>
+        <div class = "drop-buttons">
+            <div class="mobile-game-button" ontouchstart="touchStartStash()"></div>
+            <div class="mobile-game-button" ontouchstart="touchStartHardDrop()"></div>
+        </div>
+    </div>
+</body>
+</html>
