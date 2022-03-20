@@ -24,11 +24,12 @@ let brickSize = 0;
 
 let currBlock;
 let stashedBlock;
-let softDrop = false;
 
-let lastRender = 0;
-let deltaSinceUpdate = 0;
+let softDrop = false;
+let canHardDrop = true;
+
 let gameSpeed = 500
+let lastRender = 0;
 
 function initialize() {
     let target = document.getElementById("canvas");
@@ -55,15 +56,7 @@ function gameLoop(timestamp) {
         lastRender = timestamp;
     }
     let delta = timestamp - lastRender;
-    deltaSinceUpdate += delta;
-
-    let dropSpeed = softDrop ? gameSpeed / 4 : gameSpeed;
-    if(deltaSinceUpdate > dropSpeed) {
-        deltaSinceUpdate = 0;
-        update();
-    }
-
-
+    currBlock.update(delta);
     draw();
     if(gameRunning) {
         lastRender = timestamp;
@@ -90,16 +83,6 @@ function drawGrid() {
     }
 }
 
-function update() {
-    if(currBlock.isGrounded()) {
-        currBlock.attachToGrid();
-        clearRows();
-        currBlock = genNewTetremino();
-    } else {
-        currBlock.position.y += 1;
-    }
-}
-
 document.onkeydown = function (e) {
     if(e.key === 'd') {
         currBlock.shiftRightIfValid();
@@ -108,8 +91,9 @@ document.onkeydown = function (e) {
     } else if (e.key === 's') {
         console.log('soft drop on');
         softDrop = true;
-    } else if (e.key === 'w') {
+    } else if (e.key === 'w' && canHardDrop) {
         currBlock.hardDrop();
+        canHardDrop = false
     } else if (e.key === 'ArrowRight') {
         currBlock.rotateRightIfValid();
     } else if (e.key === 'ArrowLeft') {
@@ -118,7 +102,15 @@ document.onkeydown = function (e) {
         stashTetremino();
     }
 }
-
+document.onkeyup = function (e) {
+    if(e.key === 's') {
+        console.log('soft drop off');
+        softDrop = false;
+    } else if (e.key === 'w') {
+        console.log('can hard drop');
+        canHardDrop = true;
+    }
+}
 function touchStartRotateLeft() {
     currBlock.rotateLeftIfValid();
 }
@@ -136,13 +128,6 @@ function touchStartStash() {
 }
 function touchStartHardDrop() {
     currBlock.hardDrop();
-}
-
-document.onkeyup = function (e) {
-    if(e.key === 's') {
-        console.log('soft drop off');
-        softDrop = false;
-    }
 }
 
 class Point {
@@ -208,6 +193,7 @@ class Tetremino {
         this.position = position;
         this.configuration = configuration;
         this.previouslyStashed = false;
+        this.deltaSinceUpdate = 0;
     }
 
     draw() {
@@ -304,6 +290,9 @@ class Tetremino {
         while(this.isGrounded() === false) {
             this.position.y += 1;
         }
+        this.attachToGrid();
+        clearRows();
+        currBlock = genNewTetremino();
     }
 
     attachToGrid() {
@@ -312,6 +301,22 @@ class Tetremino {
             let brickPosition = new Point(brick.x + this.position.x, brick.y + this.position.y);
             if(brickPosition.isWithinGrid()) {
                 grid[brickPosition.x][brickPosition.y] = this.brickType;
+            }
+        }
+    }
+
+    update(delta) {
+        this.deltaSinceUpdate += delta;
+
+        let dropSpeed = softDrop ? gameSpeed / 4 : gameSpeed;
+        if(this.deltaSinceUpdate > dropSpeed) {
+            this.deltaSinceUpdate = 0;
+            if(this.isGrounded()) {
+                this.attachToGrid();
+                clearRows();
+                currBlock = genNewTetremino();
+            } else {
+                this.position.y += 1;
             }
         }
     }
