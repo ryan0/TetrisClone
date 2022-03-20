@@ -3,10 +3,12 @@ const canvas = {
     width: 0,
     height: 0
 }
-
+const musicTitle = new Audio("./assets/tetris-title.mp3");
 const musicAudio = new Audio("./assets/tetris-music.mp3");
 const clearAudio = new Audio("./assets/tetris-clear.wav");
 const fallAudio = new Audio("./assets/tetris-fall.wav");
+const gameOverAudio = new Audio("./assets/tetris-game-over.mp3");
+const audioFadeTimeOuts = [];
 
 let gameRunning = false;
 
@@ -41,14 +43,62 @@ function initialize() {
 
 function start() {
     if(!gameRunning) {
-        console.log("start");
         gameRunning = true;
         window.requestAnimationFrame(gameLoop);
         document.getElementById("play-button").classList.add('hide');
         document.getElementById("mobile-interface").classList.remove('hide');
-        musicAudio.loop = true;
-        musicAudio.play()
+        currBlock = genNewTetremino();
+
+        musicTitle.pause();
+        setTimeout(function() {
+            musicAudio.volume = .1;
+            musicAudio.loop = true;
+            musicAudio.currentTime = 0;
+            musicAudio.play();
+
+            audioFadeTimeOuts.forEach((a)=> clearTimeout(a));
+            audioFadeTimeOuts.length = 0;
+            for(let i = 2; i <= 10; i++) {
+                audioFadeTimeOuts.push(setTimeout(function() {
+                    musicAudio.volume = i * 0.1;
+                }, i * 4000));
+            }
+        }, 500)
     }
+}
+
+function gameOver() {
+    gameRunning = false;
+    for(let x = 0; x < grid.length; x++) {
+        for(let y = 0; y < grid[0].length; y++) {
+            grid[x][y] = Empty;
+        }
+    }
+    currBlock = null;
+    stashedBlock = null;
+    document.getElementById("mobile-interface").classList.add('hide');
+
+    musicAudio.pause();
+    setTimeout(function() {
+        gameOverAudio.volume = .5;
+        gameOverAudio.play();
+    }, 500);
+
+    setTimeout(function() {
+        document.getElementById("play-button").classList.remove('hide');
+        musicTitle.volume = .1;
+        musicTitle.loop = true;
+        musicTitle.currentTime = 0;
+        musicTitle.play();
+
+        audioFadeTimeOuts.forEach((a)=> clearTimeout(a));
+        audioFadeTimeOuts.length = 0;
+        for(let i = 2; i <= 6; i++) {
+            audioFadeTimeOuts.push(setTimeout(function() {
+                musicTitle.volume = i * 0.1;
+            }, i * 4000));
+        }
+    }, 4000);
 }
 
 function gameLoop(timestamp) {
@@ -57,15 +107,15 @@ function gameLoop(timestamp) {
     }
     let delta = timestamp - lastRender;
     currBlock.update(delta);
-    draw();
     if(gameRunning) {
+        draw();
         lastRender = timestamp;
         window.requestAnimationFrame(gameLoop);
     }
 }
 
 function draw() {
-    canvas.ctx.clearRect(0, 0, canvas.width, canvas.height)
+    canvas.ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid();
     currBlock.draw();
     if(stashedBlock) {
@@ -80,65 +130,6 @@ function drawGrid() {
             canvas.ctx.fillStyle = brickFillStyles[grid[x][y]];
             canvas.ctx.fillRect(x * brickSize, y * brickSize, brickSize, brickSize);
         }
-    }
-}
-
-document.onkeydown = function (e) {
-    if(e.key === 'd') {
-        currBlock.shiftRightIfValid();
-    } else if (e.key === 'a') {
-        currBlock.shiftLeftIfValid();
-    } else if (e.key === 's') {
-        console.log('soft drop on');
-        softDrop = true;
-    } else if (e.key === 'w' && canHardDrop) {
-        currBlock.hardDrop();
-        canHardDrop = false
-    } else if (e.key === 'ArrowRight') {
-        currBlock.rotateRightIfValid();
-    } else if (e.key === 'ArrowLeft') {
-        currBlock.rotateLeftIfValid();
-    } else if (e.key === ' ') {
-        stashTetremino();
-    }
-}
-document.onkeyup = function (e) {
-    if(e.key === 's') {
-        console.log('soft drop off');
-        softDrop = false;
-    } else if (e.key === 'w') {
-        console.log('can hard drop');
-        canHardDrop = true;
-    }
-}
-function touchStartRotateLeft() {
-    currBlock.rotateLeftIfValid();
-}
-function touchStartRotateRight() {
-    currBlock.rotateRightIfValid();
-}
-function touchStartShiftLeft() {
-    currBlock.shiftLeftIfValid();
-}
-function touchStartShiftRight() {
-    currBlock.shiftRightIfValid();
-}
-function touchStartStash() {
-    stashTetremino();
-}
-function touchStartHardDrop() {
-    currBlock.hardDrop();
-}
-
-class Point {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y
-    }
-    isWithinGrid() {
-        let withinX = this.x >= 0 && this.x < 10;
-        let withinY = this.y >= 0 && this.y < 20;
-        return withinX && withinY;
     }
 }
 
@@ -162,7 +153,6 @@ function clearRows() {
             y++;
         }
     }
-
     if(rowsCleared > 0) {
         clearAudio.play();
     } else {
@@ -170,6 +160,17 @@ function clearRows() {
     }
 }
 
+class Point {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y
+    }
+    isWithinGrid() {
+        let withinX = this.x >= 0 && this.x < 10;
+        let withinY = this.y >= 0 && this.y < 20;
+        return withinX && withinY;
+    }
+}
 
 function stashTetremino() {
     if(!stashedBlock) {
@@ -368,7 +369,58 @@ function genNewTetremino() {
     let brickType = rand + 1;
     let configuration = TETREMINO_CONFIG_MAP[rand];
     let position = new Point(3, 0);
-    return new Tetremino(brickType, configuration, position);
+    const tetrimino = new Tetremino(brickType, configuration, position);
+    if(!tetrimino.isValidPosition()) {
+        gameOver();
+        return null;
+    }
+    return tetrimino;
 }
 
-currBlock = genNewTetremino();
+document.onkeydown = function (e) {
+    if(gameRunning) {
+        if(e.key === 'd') {
+            currBlock.shiftRightIfValid();
+        } else if (e.key === 'a') {
+            currBlock.shiftLeftIfValid();
+        } else if (e.key === 's') {
+            softDrop = true;
+        } else if (e.key === 'w' && canHardDrop) {
+            currBlock.hardDrop();
+            canHardDrop = false
+        } else if (e.key === 'ArrowRight') {
+            currBlock.rotateRightIfValid();
+        } else if (e.key === 'ArrowLeft') {
+            currBlock.rotateLeftIfValid();
+        } else if (e.key === ' ') {
+            stashTetremino();
+        }
+    }
+}
+document.onkeyup = function (e) {
+    if(gameRunning) {
+        if(e.key === 's') {
+            softDrop = false;
+        } else if (e.key === 'w') {
+            canHardDrop = true;
+        }
+    }
+}
+function touchStartRotateLeft() {
+    currBlock.rotateLeftIfValid();
+}
+function touchStartRotateRight() {
+    currBlock.rotateRightIfValid();
+}
+function touchStartShiftLeft() {
+    currBlock.shiftLeftIfValid();
+}
+function touchStartShiftRight() {
+    currBlock.shiftRightIfValid();
+}
+function touchStartStash() {
+    stashTetremino();
+}
+function touchStartHardDrop() {
+    currBlock.hardDrop();
+}
